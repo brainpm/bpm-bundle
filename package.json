@@ -1,0 +1,33 @@
+{
+  "name": "bpm-bundle",
+  "version": "1.0.0",
+  "description": "episode bundler for package manager for the brain (brainpm)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "brainpm",
+    "bpm"
+  ],
+  "author": "Jan Bölsche <jan@lagomorph.de> (http://regular.codes)",
+  "license": "MIT",
+  "dependencies": {
+    "browserify": "^10.2.3",
+    "concat-stream": "^1.4.8",
+    "cssify": "^0.7.0",
+    "ejs": "^2.3.1",
+    "lodash": "^3.9.3",
+    "marked": "^0.3.3",
+    "mkdirp": "^0.5.1"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/regular/bpm-bundle.git"
+  },
+  "bugs": {
+    "url": "https://github.com/regular/bpm-bundle/issues"
+  },
+  "homepage": "https://github.com/regular/bpm-bundle#readme"
+}
