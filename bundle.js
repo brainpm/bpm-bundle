@@ -36,7 +36,7 @@ exports.bundle = function(opts, cb) {
         } catch(e) {}
     }
     if (markdown_path === null) {
-        throw new Error('unable to fund markdown file');
+        throw new Error('unable to find markdown file');
     }
     // render markdown
     var markDown = fs.readFileSync(markdown_path, 'utf8');
