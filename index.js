@@ -110,7 +110,7 @@ exports.bundle = function(opts, cb) {
                 fs.unlinkSync('./.bpm/_index.js');
                 //write bundler name and version to episode's package.JSON
                 var bundler = require('./package.json');
-                pkg.bundler = {name: bundler.name, version: bundler.version};
+                pkg.brain.bundler = {name: bundler.name, version: bundler.version};
                 fs.writeFile(package_json_path, JSON.stringify(pkg, null, 4), function(err){
                     cb(err);
                 });
