@@ -36,7 +36,7 @@ exports.bundle = function(opts, cb) {
         } catch(e) {}
     }
     if (markdown_path === null) {
-        throw new Error('unable to fund markdown file');
+        throw new Error('unable to find markdown file');
     }
     // render markdown
     var markDown = fs.readFileSync(markdown_path, 'utf8');
@@ -108,6 +108,12 @@ exports.bundle = function(opts, cb) {
             stream.on('end', function() {
                 console.log('done bundling ' + pkg.name);
                 fs.unlinkSync('./.bpm/_index.js');
+                //write bundler name and version to episode's package.JSON
+                var bundler = require('./package.json');
+                pkg.brain.bundler = {name: bundler.name, version: bundler.version};
+                fs.writeFile(package_json_path, JSON.stringify(pkg, null, 4), function(err){
+                    cb(err);
+                });
                 cb(null);
             });
         });
