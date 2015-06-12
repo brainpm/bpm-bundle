@@ -9,42 +9,76 @@ var mkdirp = require('mkdirp');
 var bfy = require('browserify')();
 var marked = require('marked');
 var concat = require('concat-stream');
+var debug = require('debug')('bpm-bundle');
 
 var template = require.resolve('./bundle.ejs');
 template = fs.readFileSync(template, 'utf-8');
 
 exports.bundle = function(config, opts, repoDir, bundleDir, cb) {
-    console.log('!!! new bundler');
+    debug(require('./package.json').version);
+    debug('about to bundle episode at ' + repoDir);
     // load package.json
     var package_json_path = path.join(repoDir, 'package.json');
     var pkg = null;
     try {
         pkg = JSON.parse(fs.readFileSync(package_json_path, 'utf-8'));
     } catch(e) {
-        console.error('unable to read package.json');
+        debug('unable to read package.json');
         return cb(e);
     }
-    if (typeof(pkg.brain) === 'undefined')
+    if (typeof(pkg.brain) === 'undefined') {
         pkg.brain = {};
+    }
+
+    var markdown_path = findContentMarkDown(pkg, repoDir);
+    if (markdown_path === null) {
+        return cb(new Error('unable to find markdown file'));
+    }
+
+    var html = renderHTML(pkg, markdown_path);
+
+    applyTransforms(pkg, repoDir, html, htmlReady);
+
+    function htmlReady(err, html) {
+        if (err) return cb(err);
+        var code = renderTemplate(template, repoDir, pkg, html);
+
+        mkdirp(bundleDir, function(err) {
+            if (err) throw err;
+
+            runBrowserify(code, bundleDir, function(err) {
+                debug('done bundling ' + pkg.name);
+
+                //write bundler name and version to episode's package.JSON
+                var bundler = require('./package.json');
+                pkg.brain.bundler = {name: bundler.name, version: bundler.version};
+                fs.writeFile(package_json_path, JSON.stringify(pkg, null, 4), function(err){
+                    cb(err);
+                });
+            });
+        });
+    }
+};
+
+function findContentMarkDown(pkg, repoDir) {
     var filenames = [pkg.brain.content || 'content.md', 'readme.md', 'ReadMe.md', 'README.md'];
-    var markdown_path = null;
     for(var i=0; i<filenames.length; ++i) {
         var p = path.join(repoDir, filenames[i]);
         try {
             fs.statSync(p);
-            markdown_path = p;
-            break;
+            return p;
         } catch(e) {}
     }
-    if (markdown_path === null) {
-        return cb(new Error('unable to fund markdown file'));
-    }
-    // render markdown
+    return null;
+}
+
+function renderHTML(pkg, markdown_path) {
     var markDown = fs.readFileSync(markdown_path, 'utf8');
     var myRenderer = new marked.Renderer();
 
+    //prefix anchor tags in headlines with episode name to disambiguate
     myRenderer.heading = function (text, level) {
-    var escapedText = pkg.name + '_' + text.toLowerCase().replace(/[^\w]+/g, '-');
+        var escapedText = pkg.name + '_' + text.toLowerCase().replace(/[^\w]+/g, '-');
         return '<h' + level + '><a name="' +
             escapedText +
             '" class="anchor" href="#' +
@@ -65,19 +99,47 @@ exports.bundle = function(config, opts, repoDir, bundleDir, cb) {
     });
 
     var html = marked(markDown);
+    return html;
+}
 
-    // apply transforms
+function runBrowserify(code, bundleDir, cb) {
+    var indexPath = path.join(bundleDir, '_index.js');
+    var outPath = path.join(bundleDir, 'index.js');
+
+    debug('writing rendered ejs template to ' + indexPath);
+    fs.writeFileSync(indexPath, code, 'utf-8');
+
+    // browserify _index.js
+    bfy.add(indexPath);
+    bfy.transform(require.resolve('cssify'), {global: true});
+
+    var stream = bfy.bundle();
+    stream.pipe(fs.createWriteStream(outPath));
+    stream.on('error', function(err) {
+        return cb(new Error('error while browserify.bundle:'+ err.message));
+    });
+    stream.on('end', function() {
+        fs.unlinkSync(indexPath);
+        cb(null);
+    });
+}
+
+function applyTransforms (pkg, repoDir, html, cb) {
     var transforms = pkg.brain['content-transform'] || [];
     if (transforms.length) {
         transforms = _.map(transforms, function(t) {
             var tp = path.join(repoDir, 'node_modules', t);
+            tp = path.resolve(tp);
+            debug('try to require transform module at '+ tp);
             return require(tp)();
         });
         var combined = _.reduce(transforms, function(combined, n) {
             return combined.pipe(n);
         });
 
-        var cs = concat(htmlReady);
+        var cs = concat(function(html) {
+            cb(null, html);
+        });
         combined.on('error', function(err) {
             return cb(new Error('error while content-transform:'+ error.message));
         });
@@ -85,45 +147,14 @@ exports.bundle = function(config, opts, repoDir, bundleDir, cb) {
         combined.write(html);
         combined.end();
     } else {
-        htmlReady(html);
+        cb(null, html);
     }
-    function htmlReady(html) {
-        var ctx = {
-            cwd: repoDir,
-            content: html, 
-            pkg: pkg
-        };
-        var code = ejs.render(template, ctx);
-        mkdirp(bundleDir, function(err) {
-            if (err) throw err;
-            var indexPath = path.join(bundleDir, '_index.js');
-
-            var outPath = path.join(bundleDir, 'index.js');
-
-console.log(indexPath);
-
-            fs.writeFileSync(indexPath, code, 'utf-8');
-            bfy.add(indexPath);
-            bfy.transform(require.resolve('cssify'), {global: true});
-
-            var stream = bfy.bundle();
-            stream.pipe(fs.createWriteStream(outPath));
-            stream.on('error', function(err) {
-                return cb(new Error('error while browserify.bundle:'+ err.message));
-            });
-            stream.on('end', function() {
-                console.log('done bundling ' + pkg.name);
-                fs.unlinkSync('./.bpm/_index.js');
-                //
-                //write bundler name and version to episode's package.JSON
-                var bundler = require('./package.json');
-                pkg.brain.bundler = {name: bundler.name, version: bundler.version};
-                fs.writeFile(package_json_path, JSON.stringify(pkg, null, 4), function(err){
-                    cb(err);
-                });
-                cb(null);
-            });
-        });
-    }
-};
-
+}
+function renderTemplate(template, repoDir, pkg, html) {
+    var ctx = {
+        cwd: repoDir,
+        content: html,
+        pkg: pkg
+    };
+    return ejs.render(template, ctx);
+}
