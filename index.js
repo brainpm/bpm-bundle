@@ -13,9 +13,10 @@ var concat = require('concat-stream');
 var template = require.resolve('./bundle.ejs');
 template = fs.readFileSync(template, 'utf-8');
 
-exports.bundle = function(opts, cb) {
+exports.bundle = function(config, opts, repoDir, bundleDir, cb) {
+    console.log('!!! new bundler');
     // load package.json
-    var package_json_path = path.join(process.cwd(), 'package.json');
+    var package_json_path = path.join(repoDir, 'package.json');
     var pkg = null;
     try {
         pkg = JSON.parse(fs.readFileSync(package_json_path, 'utf-8'));
@@ -28,7 +29,7 @@ exports.bundle = function(opts, cb) {
     var filenames = [pkg.brain.content || 'content.md', 'readme.md', 'ReadMe.md', 'README.md'];
     var markdown_path = null;
     for(var i=0; i<filenames.length; ++i) {
-        var p = path.join(process.cwd(), filenames[i]);
+        var p = path.join(repoDir, filenames[i]);
         try {
             fs.statSync(p);
             markdown_path = p;
@@ -36,7 +37,7 @@ exports.bundle = function(opts, cb) {
         } catch(e) {}
     }
     if (markdown_path === null) {
-        throw new Error('unable to find markdown file');
+        return cb(new Error('unable to fund markdown file'));
     }
     // render markdown
     var markDown = fs.readFileSync(markdown_path, 'utf8');
@@ -69,7 +70,7 @@ exports.bundle = function(opts, cb) {
     var transforms = pkg.brain['content-transform'] || [];
     if (transforms.length) {
         transforms = _.map(transforms, function(t) {
-            var tp = path.join(process.cwd(), 'node_modules', t);
+            var tp = path.join(repoDir, 'node_modules', t);
             return require(tp)();
         });
         var combined = _.reduce(transforms, function(combined, n) {
@@ -88,26 +89,32 @@ exports.bundle = function(opts, cb) {
     }
     function htmlReady(html) {
         var ctx = {
-            cwd: process.cwd(),
+            cwd: repoDir,
             content: html, 
             pkg: pkg
         };
         var code = ejs.render(template, ctx);
-        mkdirp('./.bpm', function(err) {
+        mkdirp(bundleDir, function(err) {
             if (err) throw err;
-            fs.writeFileSync('./.bpm/_index.js', code, 'utf-8');
-            bfy.add('./.bpm/_index.js');
-            //bfy.transform(require.resolve('markdownify'));
+            var indexPath = path.join(bundleDir, '_index.js');
+
+            var outPath = path.join(bundleDir, 'index.js');
+
+console.log(indexPath);
+
+            fs.writeFileSync(indexPath, code, 'utf-8');
+            bfy.add(indexPath);
             bfy.transform(require.resolve('cssify'), {global: true});
 
             var stream = bfy.bundle();
-            stream.pipe(fs.createWriteStream('./.bpm/index.js'));
+            stream.pipe(fs.createWriteStream(outPath));
             stream.on('error', function(err) {
                 return cb(new Error('error while browserify.bundle:'+ err.message));
             });
             stream.on('end', function() {
                 console.log('done bundling ' + pkg.name);
                 fs.unlinkSync('./.bpm/_index.js');
+                //
                 //write bundler name and version to episode's package.JSON
                 var bundler = require('./package.json');
                 pkg.brain.bundler = {name: bundler.name, version: bundler.version};
