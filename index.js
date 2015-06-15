@@ -41,33 +41,26 @@ exports.bundle = function(config, opts, repoDir, bundleDir, cb) {
 
     function htmlReady(err, html) {
         if (err) return cb(err);
-        var code = renderTemplate(template, repoDir, pkg, html);
 
         mkdirp(bundleDir, function(err) {
             if (err) return cb(err);
 
-            runBrowserify(code, bundleDir, function(err) {
-                if (err) {
-                    debug(err.message);
-                } else {
-                    debug('done bundling ' + pkg.name);
-                }
-                return cb(err);
-                //write bundler name and version to episode's package.JSON
-                /*
-                TODO: We mustn't touch the original package.json,
-                since it is part of the source code. Doing so will cause
-                the git working directory to be unclean after bundling and that's
-                suprising and annoying to users.
-                Instead we should manipulate a *copy* of package.json immediatley prior
-                to browserifying (could also be a browserify transform).
+            //write bundler name and version to episode's package.JSON
+            var bundler = require('./package.json');
+            pkg.brain.bundler = {name: bundler.name, version: bundler.version};
+            fs.writeFile(path.join(bundleDir, 'package.json'), JSON.stringify(pkg, null, 2), function(err){
+                if (err) return cb(err);
 
-                var bundler = require('./package.json');
-                pkg.brain.bundler = {name: bundler.name, version: bundler.version};
-                fs.writeFile(package_json_path, JSON.stringify(pkg, null, 4), function(err){
-                    cb(err);
+                var code = renderTemplate(template, repoDir, pkg, html);
+
+                runBrowserify(code, bundleDir, function(err) {
+                    if (err) {
+                        debug(err.message);
+                    } else {
+                        debug('done bundling ' + pkg.name);
+                    }
+                    return cb(err);
                 });
-                */
             });
         });
     }
