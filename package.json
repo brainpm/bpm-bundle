@@ -1,6 +1,6 @@
 {
   "name": "bpm-bundle",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "episode bundler for package manager for the brain (brainpm)",
   "main": "index.js",
   "scripts": {
