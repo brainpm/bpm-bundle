@@ -6,7 +6,7 @@ var path = require('path');
 var _ = require('lodash');
 var ejs = require('ejs');
 var mkdirp = require('mkdirp');
-var bfy = require('browserify')();
+var Bfy = require('browserify');
 var marked = require('marked');
 var concat = require('concat-stream');
 var debug = require('debug')('bpm-bundle');
@@ -44,7 +44,7 @@ exports.bundle = function(config, opts, repoDir, bundleDir, cb) {
         var code = renderTemplate(template, repoDir, pkg, html);
 
         mkdirp(bundleDir, function(err) {
-            if (err) throw err;
+            if (err) return cb(err);
 
             runBrowserify(code, bundleDir, function(err) {
                 if (err) {
@@ -52,7 +52,7 @@ exports.bundle = function(config, opts, repoDir, bundleDir, cb) {
                 } else {
                     debug('done bundling ' + pkg.name);
                 }
-                cb(err);
+                return cb(err);
                 //write bundler name and version to episode's package.JSON
                 /*
                 TODO: We mustn't touch the original package.json,
@@ -116,6 +116,7 @@ function renderHTML(pkg, markdown_path) {
 }
 
 function runBrowserify(code, bundleDir, cb) {
+    var bfy = Bfy();
     var indexPath = path.join(bundleDir, '_index.js');
     var outPath = path.join(bundleDir, 'index.js');
 
@@ -127,14 +128,14 @@ function runBrowserify(code, bundleDir, cb) {
     bfy.transform(require.resolve('cssify'), {global: true});
 
     var stream = bfy.bundle();
-    stream.pipe(fs.createWriteStream(outPath));
     stream.on('error', function(err) {
-        return cb(new Error('error while browserify.bundle:'+ err.message));
+        cb(new Error('error while browserify.bundle:'+ err.message));
     });
     stream.on('end', function() {
         fs.unlinkSync(indexPath);
         cb(null);
     });
+    stream.pipe(fs.createWriteStream(outPath));
 }
 
 function applyTransforms (pkg, repoDir, html, cb) {
@@ -154,7 +155,7 @@ function applyTransforms (pkg, repoDir, html, cb) {
             cb(null, html);
         });
         combined.on('error', function(err) {
-            return cb(new Error('error while content-transform:'+ error.message));
+            cb(new Error('error while content-transform:'+ error.message));
         });
         combined.pipe(cs);
         combined.write(html);
@@ -163,6 +164,7 @@ function applyTransforms (pkg, repoDir, html, cb) {
         cb(null, html);
     }
 }
+
 function renderTemplate(template, repoDir, pkg, html) {
     var ctx = {
         cwd: repoDir,
