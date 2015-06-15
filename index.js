@@ -47,8 +47,12 @@ exports.bundle = function(config, opts, repoDir, bundleDir, cb) {
             if (err) throw err;
 
             runBrowserify(code, bundleDir, function(err) {
-                debug('done bundling ' + pkg.name);
-
+                if (err) {
+                    debug(err.message);
+                } else {
+                    debug('done bundling ' + pkg.name);
+                }
+                cb(err);
                 //write bundler name and version to episode's package.JSON
                 /*
                 TODO: We mustn't touch the original package.json,
