@@ -16,6 +16,7 @@
     "browserify": "^10.2.3",
     "concat-stream": "^1.4.8",
     "cssify": "^0.7.0",
+    "debug": "^2.2.0",
     "ejs": "^2.3.1",
     "lodash": "^3.9.3",
     "marked": "^0.3.3",
