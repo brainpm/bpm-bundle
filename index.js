@@ -50,11 +50,20 @@ exports.bundle = function(config, opts, repoDir, bundleDir, cb) {
                 debug('done bundling ' + pkg.name);
 
                 //write bundler name and version to episode's package.JSON
+                /*
+                TODO: We mustn't touch the original package.json,
+                since it is part of the source code. Doing so will cause
+                the git working directory to be unclean after bundling and that's
+                suprising and annoying to users.
+                Instead we should manipulate a *copy* of package.json immediatley prior
+                to browserifying (could also be a browserify transform).
+
                 var bundler = require('./package.json');
                 pkg.brain.bundler = {name: bundler.name, version: bundler.version};
                 fs.writeFile(package_json_path, JSON.stringify(pkg, null, 4), function(err){
                     cb(err);
                 });
+                */
             });
         });
     }
