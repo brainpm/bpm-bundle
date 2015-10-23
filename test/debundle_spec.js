@@ -1,6 +1,6 @@
 var test = require('tape');
 var from = require('from');
-var debundle = require('../lib/debundle.js');
+var getMetaData = require('../lib/debundle.js').getMetaData;
 
 test('parses valid JSON', function(t) {
     var data = {
@@ -10,7 +10,7 @@ test('parses valid JSON', function(t) {
     function mockGetFileStream() {
         return from(JSON.stringify(data).split(''));
     }
-    debundle({
+    getMetaData({
             getFileStream: mockGetFileStream
         }, 
         function( err, parsedData) {
@@ -25,7 +25,7 @@ test('calls callback with error when parsing does not work', function(t) {
     function mockGetFileStream() {
         return from("{I am SOO invalid".split(''));
     }
-    debundle({
+    getMetaData({
             getFileStream: mockGetFileStream
         }, 
         function( err, parsedData) {
